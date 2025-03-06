@@ -3,13 +3,16 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"io"
-	"net/http"
+	"net"
 
-	"golang.org/x/net/websocket"
+	"github.com/shakram02/nony-chat/adapters/http/handshaker"
+	http_parser "github.com/shakram02/nony-chat/adapters/http/parser"
+	"github.com/shakram02/nony-chat/adapters/websocket"
 )
 
 type EventType string
+
+const BufferSize = 2048
 
 var EventTypeJoin EventType = "join"
 var EventTypeMessage EventType = "message"
@@ -29,65 +32,74 @@ func (m Message) Serialize() []byte {
 	return jsonMessage
 }
 
-func readClient(ws *websocket.Conn, messageChannel chan<- Message) {
-	fmt.Printf("Start reading client: %v", ws.RemoteAddr())
-	for {
-		var message Message
-		err := websocket.JSON.Receive(ws, &message)
-		if err != nil && err != io.EOF {
-			fmt.Printf("Failed to receive: %v\n", err)
-			break
-		}
-
-		switch message.Type {
-		case EventTypeMessage:
-			fmt.Printf("Received: %v", message.Content)
-		}
-		messageChannel <- message
+func readMessage(socket net.Conn) ([]byte, error) {
+	buffer := make([]byte, 2048)
+	n, err := socket.Read(buffer)
+	if err != nil {
+		return nil, err
 	}
+
+	return buffer[:n], nil
 }
 
-func serveClient(clientsChannel <-chan *websocket.Conn, messageChannel chan<- Message) {
-	for {
-		select {
-		case clientSock := <-clientsChannel:
-			fmt.Println("Client connected")
-			go readClient(clientSock, messageChannel)
+type ChatClient struct {
+	id     string
+	socket net.Conn
+}
+
+func initiateConnection(socket net.Conn, connections <-chan ChatClient) {
+	// Read the handshake
+	message, err := readMessage(socket)
+	if err != nil {
+		fmt.Printf("Failed to read handshake: %v", err)
+		return
+	}
+	websocketHandshake, err := http_parser.Parse(message)
+	handshaker := handshaker.New(socket, websocketHandshake)
+
+	if err != nil {
+		fmt.Printf("Failed to parse handshake: %v", err)
+		err := handshaker.Reject()
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+	} else {
+		// Reply to handshake
+		err := handshaker.Handshake()
+		if err != nil {
+			fmt.Println(err)
+			return
 		}
 	}
-}
 
-type WebsocketServer struct {
-	ClientChannel  chan *websocket.Conn
-	MessageChannel chan Message
-}
+	for {
+		// Read welcome message
+		message, err = readMessage(socket)
+		if err != nil {
+			fmt.Printf("Failed to read: %v", err)
+			return
+		}
 
-// Echo the data received on the WebSocket.
-func (s WebsocketServer) EchoServer(ws *websocket.Conn) {
-	s.ClientChannel <- ws
-	go serveClient(s.ClientChannel, s.MessageChannel)
+		packet := websocket.New(message)
+		fmt.Printf("Read %v\n", packet)
+	}
+
 }
 
 func main() {
-	messageChannel := make(chan Message)
-	clientChannels := make(chan *websocket.Conn)
-	s := WebsocketServer{
-		ClientChannel:  clientChannels,
-		MessageChannel: messageChannel,
+	server, err := net.Listen("tcp", ":8080")
+	chatClientChan := make(chan ChatClient)
+	if err != nil {
+		panic(fmt.Errorf("Failed to listen: %s", err))
 	}
 
-	http.Handle("/", websocket.Handler(s.EchoServer))
-	go func() {
-		err := http.ListenAndServe(":8080", nil)
-		if err != nil {
-			panic("ListenAndServe: " + err.Error())
-		}
-	}()
-
 	for {
-		select {
-		case message := <-messageChannel:
-			fmt.Print("Message received:", message.Content, " At:", message.Timestamp)
+		conn, err := server.Accept()
+		if err != nil {
+			panic(fmt.Errorf("Failed to accept: %s", err))
 		}
+
+		go initiateConnection(conn, chatClientChan)
 	}
 }
