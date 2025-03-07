@@ -82,7 +82,7 @@ func initiateConnection(socket net.Conn, connections <-chan ChatClient) {
 		}
 
 		packet := websocket.New(message)
-		fmt.Printf("Read %v\n", packet)
+		fmt.Printf("%s\n", packet)
 	}
 
 }

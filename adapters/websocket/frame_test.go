@@ -88,47 +88,100 @@ func TestParseHeaderOpCode(t *testing.T) {
 	}
 }
 
-func TestParsePayloadLength(t *testing.T) {
+func TestParsePayloadLengthMode(t *testing.T) {
 	cases := []struct {
-		description string
-		input       [9]byte
-		output      uint64
+		inputPayloadLengthByte byte
+		outputLengthMode       payloadLengthMode
 	}{
 		{
-			description: "if 0-125, that is the payload length",
-			input:       [9]byte{0},
-			output:      0,
+			inputPayloadLengthByte: 0,
+			outputLengthMode:       Simple,
 		},
 		{
-			description: "if 0-125, that is the payload length",
-			input:       [9]byte{125},
-			output:      125,
+			inputPayloadLengthByte: 125,
+			outputLengthMode:       Simple,
 		},
 		{
-			description: "If 126, the following 2 bytes interpreted as a 16-bit unsigned integer are the payload length",
-			input:       [9]byte{126, 0, 0xFF},
-			output:      0xFF,
+			inputPayloadLengthByte: 126,
+			outputLengthMode:       Extended16Bits,
 		},
 		{
-			description: "If 126, the following 2 bytes interpreted as a 16-bit unsigned integer are the payload length",
-			input:       [9]byte{126, 0xFF, 0xFF},
-			output:      0xFFFF,
+			inputPayloadLengthByte: 0b_1111_1111, // 127
+			outputLengthMode:       Extended64Bits,
+		},
+	}
+
+	for _, c := range cases {
+		out := parseHeaderPayloadLengthMode(c.inputPayloadLengthByte)
+		if out != c.outputLengthMode {
+			t.Errorf("Expected length mode to be [%v] found [%v]", c.outputLengthMode, out)
+		}
+	}
+}
+
+func TestParsePayloadLength(t *testing.T) {
+	cases := []struct {
+		description     string
+		input           []uint8
+		inputLengthMode payloadLengthMode
+		outputLength    uint64
+	}{
+		{
+			description:     "if 0-125, that is the payload length",
+			input:           []byte{0},
+			outputLength:    0,
+			inputLengthMode: Simple,
 		},
 		{
-			description: "If 127, the following 8 bytes interpreted as a 64-bit unsigned integer (the most significant bit MUST be 0)",
-			input:       [9]byte{127, 0xEF, 0xCD, 0xAB, 0x89, 0x67, 0x45, 0x23, 0x01},
-			output:      0xEFCDAB8967452301,
+			description:     "if 0-125, that is the payload length",
+			input:           []byte{125},
+			outputLength:    125,
+			inputLengthMode: Simple,
+		},
+		{
+			description:     "If 126, the following 2 bytes interpreted as a 16-bit unsigned integer are the payload length",
+			input:           []byte{126, 0, 0xFF},
+			outputLength:    0xFF,
+			inputLengthMode: Extended16Bits,
+		},
+		{
+			description:     "If 126, the following 2 bytes interpreted as a 16-bit unsigned integer are the payload length",
+			input:           []byte{126, 0xFF, 0xFF},
+			outputLength:    0xFFFF,
+			inputLengthMode: Extended16Bits,
+		},
+		{
+			description:     "If 127, the following 8 bytes interpreted as a 64-bit unsigned integer (the most significant bit MUST be 0)",
+			input:           []byte{127, 0xEF, 0xCD, 0xAB, 0x89, 0x67, 0x45, 0x23, 0x01},
+			outputLength:    0xEFCDAB8967452301,
+			inputLengthMode: Extended64Bits,
 		},
 	}
 
 	for _, c := range cases {
 		t.Run(c.description, func(t *testing.T) {
-			out := parseHeaderPayloadLength(c.input)
-
-			if out != c.output {
-				t.Errorf("Input [%v] Expected: [%X] found [%X]", c.input, c.output, out)
+			parser := FrameParser{
+				raw: c.input,
 			}
+			out := parser.parseHeaderPayloadLength(c.inputLengthMode)
 
+			if out != c.outputLength {
+				t.Errorf("Input [%v] Expected: [%X] found [%X]", c.input, c.outputLength, out)
+			}
 		})
 	}
+}
+
+func TestParsePayloadMask(t *testing.T) {
+	// _ := []struct {
+	// 	hasMask   bool
+	// 	inputMask [4]byte
+	// 	output    [4]byte
+	// }{
+	// 	{
+	// 		hasMask:   false,
+	// 		inputMask: [4]byte{},
+	// 		output:    [4]byte{},
+	// 	},
+	// }
 }
