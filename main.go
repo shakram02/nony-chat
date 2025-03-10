@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
+	"net/http"
 
 	"github.com/shakram02/nony-chat/adapters/http/handshaker"
 	http_parser "github.com/shakram02/nony-chat/adapters/http/parser"
@@ -88,6 +89,9 @@ func initiateConnection(socket net.Conn, connections <-chan ChatClient) {
 }
 
 func main() {
+	http.Handle("/", http.FileServer(http.Dir("public")))
+	go http.ListenAndServe(":8000", nil)
+
 	server, err := net.Listen("tcp", ":8080")
 	chatClientChan := make(chan ChatClient)
 	if err != nil {
