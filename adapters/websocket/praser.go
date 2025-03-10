@@ -12,6 +12,17 @@ func newParser(raw []byte) *FrameParser {
 	}
 }
 
+func (p *FrameParser) parseFrame() WebsocketFrame {
+	header := p.parseHeader()
+
+	frame := WebsocketFrame{
+		header: header,
+		Data:   p.raw[p.pointer:],
+	}
+
+	return frame
+}
+
 func (p *FrameParser) parseHeader() websocketHeader {
 	fin := parseBit(p.getCurrentByte(), 0)
 	opCode := parseHeaderOpCode(p.getCurrentByte())
@@ -31,19 +42,25 @@ func (p *FrameParser) parseHeader() websocketHeader {
 		p.Advance(1 + 8)
 	}
 
+	header := websocketHeader{
+		Fin:           fin,
+		OpCode:        opCode,
+		IsMasked:      isMasked,
+		PayloadLength: length,
+	}
+
 	// Will the mask bytes exist as 0000 if
 	// the mask bit is unset? yes ->
 	// frame-masking-key = 4( %x00-FF )
 	//                     ; present only if frame-masked is 1
 	//                     ; 32 bits in length
-	// mask := [4]byte{}
-
-	return websocketHeader{
-		Fin:           fin,
-		OpCode:        opCode,
-		Mask:          isMasked,
-		PayloadLength: length,
+	if isMasked {
+		mask := p.raw[p.pointer : p.pointer+4]
+		header.Mask = [4]byte(mask)
+		p.Advance(4)
 	}
+
+	return header
 }
 
 func parseHeaderOpCode(input uint8) FrameOpCode {

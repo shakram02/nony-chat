@@ -1,6 +1,8 @@
 package websocket
 
-import "testing"
+import (
+	"testing"
+)
 
 func TestParseBit(t *testing.T) {
 	cases := []struct {
@@ -173,15 +175,82 @@ func TestParsePayloadLength(t *testing.T) {
 }
 
 func TestParsePayloadMask(t *testing.T) {
-	// _ := []struct {
-	// 	hasMask   bool
-	// 	inputMask [4]byte
-	// 	output    [4]byte
-	// }{
-	// 	{
-	// 		hasMask:   false,
-	// 		inputMask: [4]byte{},
-	// 		output:    [4]byte{},
-	// 	},
-	// }
+	cases := []struct {
+		description string
+		input       []byte
+		wantMasked  bool
+		wantMask    [4]byte
+	}{
+		{
+			description: "unmasked frame",
+			input:       []byte{0x81, 0x00}, // FIN=1, OpCode=1, MASK=0
+			wantMasked:  false,
+			wantMask:    [4]byte{0, 0, 0, 0},
+		},
+		{
+			description: "masked frame",
+			input:       []byte{0x81, 0x80, 0xAA, 0xBB, 0xCC, 0xDD}, // FIN=1, OpCode=1, MASK=1, with mask
+			wantMasked:  true,
+			wantMask:    [4]byte{0xAA, 0xBB, 0xCC, 0xDD},
+		},
+		{
+			description: "masked frame with payload",
+			// FIN=1, OpCode=1, MASK=1, Length=5, with mask, then payload
+			input:      []byte{0x81, 0x85, 0x11, 0x22, 0x33, 0x44, 0x01, 0x02, 0x03, 0x04, 0x05},
+			wantMasked: true,
+			wantMask:   [4]byte{0x11, 0x22, 0x33, 0x44},
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.description, func(t *testing.T) {
+			frame := Parse(c.input)
+
+			if frame.header.IsMasked != c.wantMasked {
+				t.Errorf("IsMasked = %v, want %v", frame.header.IsMasked, c.wantMasked)
+			}
+
+			if frame.header.IsMasked && frame.header.Mask != c.wantMask {
+				t.Errorf("Mask = %v, want %v", frame.header.Mask, c.wantMask)
+			}
+		})
+	}
+}
+
+func TestUnmask(t *testing.T) {
+	cases := []struct {
+		description string
+		rawPayload  string
+		mask        [4]byte
+	}{
+		{
+			description: "unmasking a frame with a mask",
+			rawPayload:  "Hello, World!",
+			mask:        [4]byte{0xAA, 0xBB, 0xCC, 0xDD},
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.description, func(t *testing.T) {
+			maskedInput := make([]byte, len(c.rawPayload))
+			for i, b := range c.rawPayload {
+				maskedInput[i] = byte(b) ^ c.mask[i%len(c.mask)]
+			}
+
+			frame := WebsocketFrame{
+				raw: []byte(c.rawPayload),
+				header: websocketHeader{
+					IsMasked: true,
+					Mask:     c.mask,
+				},
+				Data: maskedInput,
+			}
+			unmask(frame.Data, frame.header.Mask)
+
+			if string(frame.Data) != c.rawPayload {
+				t.Errorf("Expected unmasked input to be [%v] found [%v]", c.rawPayload, frame.Data)
+			}
+
+		})
+	}
 }

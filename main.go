@@ -78,12 +78,12 @@ func initiateConnection(socket net.Conn, connections <-chan ChatClient) {
 		// Read welcome message
 		message, err = readMessage(socket)
 		if err != nil {
-			fmt.Printf("Failed to read: %v", err)
+			fmt.Printf("Failed to read: %v\n", err)
 			return
 		}
 
-		packet := websocket.New(message)
-		fmt.Printf("%s\n", packet)
+		frame := websocket.New(message)
+		fmt.Printf("%s\n", frame)
 	}
 
 }

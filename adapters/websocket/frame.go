@@ -28,32 +28,44 @@ const (
 type websocketHeader struct {
 	Fin           bool
 	OpCode        FrameOpCode
-	Mask          bool
+	IsMasked      bool
+	Mask          [4]byte
 	PayloadLength uint64
 	MaskingKey    uint32
 }
 
-type WebsocketPacket struct {
-	websocketHeader
-	data []uint8
+type WebsocketFrame struct {
+	raw    []uint8
+	header websocketHeader
+	Data   []uint8
 }
 
-func New(raw []uint8) WebsocketPacket {
+func New(raw []uint8) *WebsocketFrame {
 	parser := newParser(raw)
-	header := parser.parseHeader()
+	frame := parser.parseFrame()
+	if frame.header.IsMasked {
+		unmask(frame.Data, frame.header.Mask)
+	}
 
-	return WebsocketPacket{
-		websocketHeader: header,
+	return &frame
+}
+
+func unmask(data []uint8, mask [4]byte) {
+	for i, b := range data {
+		maskIndex := i % len(mask)
+		data[i] = b ^ mask[maskIndex]
 	}
 }
 
-func (p WebsocketPacket) String() string {
+func (f WebsocketFrame) String() string {
 	out := ""
 	out += "---------------------\n"
-	out += fmt.Sprintf(" Is Fin: %v\n", p.Fin)
-	out += fmt.Sprintf(" Op: %v\n", p.OpCode)
-	out += fmt.Sprintf(" Is Masked: %v\n", p.Mask)
-	out += fmt.Sprintf(" Length: %v\n", p.PayloadLength)
+	out += fmt.Sprintf(" Is Fin: %v\n", f.header.Fin)
+	out += fmt.Sprintf(" Op: %v\n", f.header.OpCode)
+	out += fmt.Sprintf(" Is Masked: %v\n", f.header.IsMasked)
+	out += fmt.Sprintf(" Mask: %x\n", f.header.Mask)
+	out += fmt.Sprintf(" Length: %v\n", f.header.PayloadLength)
+	out += fmt.Sprintf(" Data: %s\n", string(f.Data))
 	out += "---------------------\n"
 	return out
 }
