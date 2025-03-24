@@ -47,8 +47,8 @@ func New(
 }
 
 func (h Handshaker) Handshake() error {
-	resp := makeHandshakeResponse(h.clientHandshake.Headers.SecWebSocketKey)
-	return h.writeResponse(resp)
+	websocketAccept := makeHandshakeAcceptHeaderValue(h.clientHandshake.Headers.SecWebSocketKey)
+	return h.writeResponse(websocketAccept)
 }
 
 func (h Handshaker) writeResponse(resp handshakeResponse) error {
@@ -72,7 +72,7 @@ func (h Handshaker) writeResponse(resp handshakeResponse) error {
 	return nil
 }
 
-func makeHandshakeResponse(websocketKey string) handshakeResponse {
+func makeHandshakeAcceptHeaderValue(websocketKey string) handshakeResponse {
 	trimmed := strings.TrimSpace(websocketKey)
 	handshakeAccept := trimmed + rfc6455ServerResponseGuid
 	hasher := sha1.New()

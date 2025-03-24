@@ -73,3 +73,19 @@ func (f WebsocketFrame) String() string {
 // func parseMask(container [2]uint8) [4]uint8 {
 
 // }
+
+func (f WebsocketFrame) IsFragmented() bool {
+	return f.header.Fin == false || f.IsEndFragment()
+}
+
+func (f WebsocketFrame) IsStartFragment() bool {
+	return f.header.Fin == false && f.header.OpCode != OpContinuationFrame
+}
+
+func (f WebsocketFrame) IsContinuationFragment() bool {
+	return f.header.Fin == false && f.header.OpCode == OpContinuationFrame
+}
+
+func (f WebsocketFrame) IsEndFragment() bool {
+	return f.header.Fin == true && f.header.OpCode == OpContinuationFrame
+}
