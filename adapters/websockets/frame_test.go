@@ -1,4 +1,4 @@
-package websocket
+package websockets
 
 import (
 	"testing"
@@ -204,7 +204,7 @@ func TestParsePayloadMask(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.description, func(t *testing.T) {
-			frame := Parse(c.input)
+			frame := New(c.input)
 
 			if frame.header.IsMasked != c.wantMasked {
 				t.Errorf("IsMasked = %v, want %v", frame.header.IsMasked, c.wantMasked)
@@ -237,7 +237,7 @@ func TestUnmask(t *testing.T) {
 				maskedInput[i] = byte(b) ^ c.mask[i%len(c.mask)]
 			}
 
-			frame := WebsocketFrame{
+			frame := Frame{
 				raw: []byte(c.rawPayload),
 				header: websocketHeader{
 					IsMasked: true,

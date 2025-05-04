@@ -1,4 +1,4 @@
-package websocket
+package websockets
 
 import (
 	"fmt"
@@ -34,13 +34,14 @@ type websocketHeader struct {
 	MaskingKey    uint32
 }
 
-type WebsocketFrame struct {
+type Frame struct {
 	raw    []uint8
 	header websocketHeader
 	Data   []uint8
 }
 
-func New(raw []uint8) *WebsocketFrame {
+// TODO: rename this to parse or something, return result and error.
+func New(raw []uint8) *Frame {
 	parser := newParser(raw)
 	frame := parser.parseFrame()
 	if frame.header.IsMasked {
@@ -57,7 +58,7 @@ func unmask(data []uint8, mask [4]byte) {
 	}
 }
 
-func (f WebsocketFrame) String() string {
+func (f Frame) String() string {
 	out := ""
 	out += "---------------------\n"
 	out += fmt.Sprintf(" Is Fin: %v\n", f.header.Fin)
@@ -74,18 +75,18 @@ func (f WebsocketFrame) String() string {
 
 // }
 
-func (f WebsocketFrame) IsFragmented() bool {
+func (f Frame) IsFragmented() bool {
 	return f.header.Fin == false || f.IsEndFragment()
 }
 
-func (f WebsocketFrame) IsStartFragment() bool {
+func (f Frame) IsStartFragment() bool {
 	return f.header.Fin == false && f.header.OpCode != OpContinuationFrame
 }
 
-func (f WebsocketFrame) IsContinuationFragment() bool {
+func (f Frame) IsContinuationFragment() bool {
 	return f.header.Fin == false && f.header.OpCode == OpContinuationFrame
 }
 
-func (f WebsocketFrame) IsEndFragment() bool {
+func (f Frame) IsEndFragment() bool {
 	return f.header.Fin == true && f.header.OpCode == OpContinuationFrame
 }

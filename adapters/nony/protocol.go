@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"time"
 
-	"github.com/shakram02/nony-chat/adapters/websocket"
+	"github.com/shakram02/nony-chat/adapters/websockets"
 )
 
 type NonyPacketType string
@@ -18,7 +18,7 @@ type PacketContent struct {
 	Text string `json:"text"`
 }
 
-type NonyPacket struct {
+type Packet struct {
 	Type      NonyPacketType `json:"type"`
 	UserId    string         `json:"userId"`
 	RoomId    string         `json:"roomId"`
@@ -26,7 +26,7 @@ type NonyPacket struct {
 	Timestamp time.Time      `json:"timestamp"`
 }
 
-func New(websocketFrame websocket.WebsocketFrame) *NonyPacket {
+func New(websocketFrame *websockets.Frame) *Packet {
 	data := websocketFrame.Data
 
 	packet, err := parse(data)
@@ -37,8 +37,8 @@ func New(websocketFrame websocket.WebsocketFrame) *NonyPacket {
 	return packet
 }
 
-func parse(data []byte) (*NonyPacket, error) {
-	packet := &NonyPacket{}
+func parse(data []byte) (*Packet, error) {
+	packet := &Packet{}
 
 	err := json.Unmarshal(data, packet)
 	if err != nil {

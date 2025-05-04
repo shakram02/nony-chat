@@ -8,8 +8,11 @@ class ChatRoom {
         this.setupWebSocket();
         this.setupEventListeners();
 
-        // Auto focus the input
-        this.messageInput.focus();
+        if (this.messageInput) {
+            // Auto focus the input
+            this.messageInput.focus();
+        }
+
         this.setInputsEnabled(false); // Start disabled until connection is established
     }
 
@@ -42,6 +45,11 @@ class ChatRoom {
     }
 
     setupEventListeners() {
+        if (!this.sendButton || !this.messageInput) {
+            console.error('Send button or message input not found');
+            return;
+        }
+
         this.sendButton.addEventListener('click', () => this.sendMessage());
 
         this.messageInput.addEventListener('keypress', (event) => {
@@ -52,7 +60,15 @@ class ChatRoom {
     }
 
     sendMessage() {
-        const messageText = this.messageInput.value.trim();
+        if (!this.messageInput) {
+            console.error('Message input not found');
+            return;
+        }
+        const value = this.messageInput.value;
+        if (!value) {
+            return;
+        }
+        const messageText = value.trim();
         if (messageText) {
             const message = {
                 type: 'message',
@@ -71,6 +87,11 @@ class ChatRoom {
     }
 
     displayMessage(message, type) {
+        if (!this.messageList) {
+            console.error('Message list not found');
+            return;
+        }
+
         const container = document.createElement('div');
         container.classList.add('message-container');
 
@@ -87,18 +108,25 @@ class ChatRoom {
 
         const messageContent = `
             <span class="username">${message.userId}</span>
-            <span class="text">${message.content}</span>
+            <span class="text">${message.content.text}</span>
         `;
 
         messageElement.innerHTML = messageContent;
 
         container.appendChild(timestampElement);
         container.appendChild(messageElement);
+
+
         this.messageList.appendChild(container);
         this.messageList.scrollTop = this.messageList.scrollHeight;
     }
 
     setInputsEnabled(enabled) {
+        if (!this.messageInput || !this.sendButton) {
+            console.error('Message input or send button not found');
+            return;
+        }
+
         this.messageInput.disabled = !enabled;
         this.sendButton.disabled = !enabled;
 

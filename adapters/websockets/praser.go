@@ -1,4 +1,4 @@
-package websocket
+package websockets
 
 type FrameParser struct {
 	raw     []byte
@@ -12,10 +12,10 @@ func newParser(raw []byte) *FrameParser {
 	}
 }
 
-func (p *FrameParser) parseFrame() WebsocketFrame {
+func (p *FrameParser) parseFrame() Frame {
 	header := p.parseHeader()
 
-	frame := WebsocketFrame{
+	frame := Frame{
 		header: header,
 		Data:   p.raw[p.pointer:],
 	}

@@ -50,7 +50,7 @@ var requiredHeaders = map[string]string{
 	"Sec-WebSocket-Version": "13",
 }
 
-func Parse(request []byte) (WebsocketHandshake, error) {
+func ParseUpgradeRequest(request []byte) (WebsocketHandshake, error) {
 	requestString := string(request)
 
 	httpRequestParts := strings.Split(requestString, "\r\n")

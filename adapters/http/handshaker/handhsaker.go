@@ -3,8 +3,6 @@ package handshaker
 import (
 	"crypto/sha1"
 	"encoding/base64"
-	"fmt"
-	"net"
 	"strings"
 
 	http_parser "github.com/shakram02/nony-chat/adapters/http/parser"
@@ -31,28 +29,12 @@ type HandshakedClient struct {
 	SocketIdentifier string
 }
 
-type Handshaker struct {
-	conn            net.Conn
-	clientHandshake http_parser.WebsocketHandshake
+func MakeAcceptanceResposne(clientHandshake http_parser.WebsocketHandshake) []byte {
+	websocketAccept := makeHandshakeAcceptHeaderValue(clientHandshake.Headers.SecWebSocketKey)
+	return makeResponse(websocketAccept)
 }
 
-func New(
-	conn net.Conn,
-	clientHandshake http_parser.WebsocketHandshake,
-) Handshaker {
-	return Handshaker{
-		conn:            conn,
-		clientHandshake: clientHandshake,
-	}
-}
-
-func (h Handshaker) Handshake() error {
-	websocketAccept := makeHandshakeAcceptHeaderValue(h.clientHandshake.Headers.SecWebSocketKey)
-	return h.writeResponse(websocketAccept)
-}
-
-func (h Handshaker) writeResponse(resp handshakeResponse) error {
-
+func makeResponse(resp handshakeResponse) []byte {
 	responseString := ""
 	responseString += "HTTP/1.1 101 Switching Protocols" + lineSep
 	responseString += "Upgrade: websocket" + lineSep
@@ -60,16 +42,7 @@ func (h Handshaker) writeResponse(resp handshakeResponse) error {
 	responseString += "Sec-WebSocket-Accept: " + resp.WebsocketAccept + lineSep
 	responseString += lineSep
 
-	n, err := h.conn.Write([]byte(responseString))
-	if err != nil {
-		return fmt.Errorf("failed to write handshake: %w", err)
-	}
-
-	if n != len(responseString) {
-		return fmt.Errorf("response not fully written, expected: %d, actual: %d", len(responseString), n)
-	}
-
-	return nil
+	return []byte(responseString)
 }
 
 func makeHandshakeAcceptHeaderValue(websocketKey string) handshakeResponse {
@@ -88,16 +61,7 @@ func makeHandshakeAcceptHeaderValue(websocketKey string) handshakeResponse {
 	}
 }
 
-func (h Handshaker) Reject() error {
+func MakeRejectionResponse() []byte {
 	responseString := "HTTP/1.1 400 Bad Request\r\n\r\n"
-	n, err := h.conn.Write([]byte(responseString))
-	if err != nil {
-		return fmt.Errorf("failed to write handshake: %w", err)
-	}
-
-	if n != len(responseString) {
-		return fmt.Errorf("response not fully written, expected: %d, actual: %d", len(responseString), n)
-	}
-
-	return nil
+	return []byte(responseString)
 }
